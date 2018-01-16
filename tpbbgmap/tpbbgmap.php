@@ -94,12 +94,41 @@ FLBuilder::register_module('TPgMapModule', array(
 							'type'         => 'refresh'
 						)
 					),
+					'markers_type' => array(
+					    'type'          => 'select',
+					    'label'         => __( 'Map Marker Source', 'bbgmap' ),
+					    'default'       => 'manual',
+					    'options'       => array(
+					        'manual'      => __( 'Manually Specified Markers', 'bbgmap' ),
+					        'automatic'      => __( 'Automatic Markers from Custom Fields', 'bbgmap' )
+					    ),
+					    'toggle'        => array(
+					        'manual'      => array(
+					            'tabs'          => array( 'markersSection' )
+					        ),
+					        'automatic'      => array(
+											'fields'        => array( 'address_cf' ),
+											'tabs'          => array( 'markersAutoSection' )
+									),
+					    )
+					),
+					'address_cf'    => array(
+						'type'          => 'text',
+						'label'         => __('Address Custom Field', 'bbgmap'),
+						'placeholder'  	=> __( '_address', 'bbgmap' ),
+						//'description'		=> __( 'The name of the custom field that contains the address', 'bbgmap' ),
+						'help'					=> __( 'This field is used only when specifying Automatic Markers', 'bbgmap' ),
+					),
 				)
 			)
 		)
 	),
+	'markersAutoSection' => array(
+    'title'         => __( 'Automatic Markers', 'fl-builder' ),
+    'file'          => FL_BUILDER_DIR . 'includes/loop-settings.php',
+	),
 	'markersSection'       => array(
-		'title'         => __('Markers', 'bbgmap'),
+		'title'         => __('Manual Markers', 'bbgmap'),
 		'sections'      => array(
 			'general'       => array(
 				'title'         => '',

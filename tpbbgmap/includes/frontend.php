@@ -1,6 +1,37 @@
 <?php
 $mapsID = 'maps-'. uniqid();
 
+$query = FLBuilderLoop::query( $settings );
+
+if ($settings->markers_type == 'automatic'){
+	
+	//Override the $settings->markers object values.
+	$settings->markers = array();
+
+	if ( $query->have_posts() ) {
+	    while ( $query->have_posts() ) {
+	        $query->the_post();
+
+					$address = get_post_meta( get_the_ID(), $settings->address_cf, true );
+										
+					if ( ! empty( $address ) ) {
+											
+						$settings->markers[] = (object) array(
+							'title' => get_the_title(),
+							//'lat' => '',
+							//'lng' => '',
+							'address' => $address,
+							'marker' => '', //img file accepted
+							'content' => get_the_content(),
+						);
+						
+					}
+	    }
+	}
+	wp_reset_postdata();
+
+}
+
 $data = array(
 	'markers'                   => $settings->markers,
 	'zoom'                      => $settings->zoom,
@@ -33,11 +64,21 @@ if( $atts['markers'] && count($atts['markers']) > 0 ) {
 }
 
 
-if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(  $atts['markers'][0]->lng ) ) ) {
-	?>
-	<div class="alert alert-danger" role="alert"><?php _e('Add a marker to see the map', 'bbgmap'); ?></div>
-	<?php
-	return;
+if ($settings->markers_type == 'manual'){
+	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(  $atts['markers'][0]->lng ) ) ) {
+		?>
+		<div class="alert alert-danger" role="alert"><?php _e('Add a marker to see the map', 'bbgmap'); ?></div>
+		<?php
+		return;
+	}
+}
+else{
+	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->address )  ) ) {
+		?>
+		<div class="alert alert-danger" role="alert"><?php _e('No posts found', 'bbgmap'); ?></div>
+		<?php
+		return;
+	}
 }
 ?>
 
@@ -71,8 +112,11 @@ if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(
 
 		var styledMap = new google.maps.StyledMapType( styles, {name: "Routier"} );
 
-		var latlng = new google.maps.LatLng(<?php echo $atts['markers'][0]->lat; ?>,<?php echo $atts['markers'][0]->lng; ?>); // Paris
-
+		//var latlng = new google.maps.LatLng(<?php echo $atts['markers'][0]->lat; ?>,<?php echo $atts['markers'][0]->lng; ?>); // Paris
+		var latlng = new google.maps.LatLng(0,0); //we'll re-center after loading anyway.
+		
+		var geocoder = new google.maps.Geocoder();
+		
 		var data = <?php echo json_encode( array( 'markers' => $atts['markers'] ) ); ?>;
 
 		<?php if( count( $atts['markers'] ) > 1 ): ?>
@@ -109,7 +153,8 @@ if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(
 						var icon = '<?php echo esc_js( $bbgmap_map_defaut_icon ); ?>';
 					}
 
-
+					<?php if ($settings->markers_type == 'manual'): ?>
+					
 					var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
 						'position': new google.maps.LatLng( marker.lat, marker.lng ),
 						'icon': icon,
@@ -120,6 +165,31 @@ if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(
 							$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
 						}
 					})[0];
+						
+					<?php else: ?>
+					
+					geocoder.geocode( { 'address': marker.address}, function(results, status) {
+				    if (status == google.maps.GeocoderStatus.OK) {
+				      map.setCenter(results[0].geometry.location);
+							
+							var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
+								'position': results[0].geometry.location,
+								'icon': icon,
+								'bounds': bounds
+							}).click(function() {
+								if(marker.content)
+								{
+									$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
+								}
+							})[0];
+							
+				    } else {
+				      alert('Geocode was not successful for the following reason: ' + status);
+				    }
+				  });
+					
+					<?php endif; ?>
+
 				});
 
 				$('#<?php echo esc_js( $mapsID ); ?>').gmap('set', 'MarkerClusterer', new MarkerClusterer(map, $(this).gmap('get', 'markers')));
