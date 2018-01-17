@@ -52,6 +52,47 @@ class TPgMapModule extends FLBuilderModule {
 		}
 		return $field;
 	}
+	
+	// ------------------------------------------
+	// converts a string with a stret address
+	// into a couple of lat, long coordinates.
+	// https://www.codeofaninja.com/2014/06/google-maps-geocoding-example-php.html
+	// ------------------------------------------
+	public static function getLatLong($address){
+ 
+    // url encode the address
+    $address = urlencode($address);
+     
+    // google map geocode api url
+    $url = "http://maps.google.com/maps/api/geocode/json?address={$address}&key={$settings->gmaps_api_key}";
+ 
+    $resp = json_decode(file_get_contents($url), true);
+      
+    // response status will be 'OK', if able to geocode given address 
+    if($resp['status']=='OK'){
+ 
+        // get the important data
+        $lati = $resp['results'][0]['geometry']['location']['lat'];
+        $longi = $resp['results'][0]['geometry']['location']['lng'];
+        $formatted_address = $resp['results'][0]['formatted_address'];
+         
+        // verify if data is complete
+        if($lati && $longi){
+         
+            return array(
+							'lat' => $lati,
+							'lng' => $longi,
+							'addr' => $formatted_address,
+						);            
+                          
+        }
+				else return false;
+         
+    }
+		else return false;
+		
+	}
+	
 }
 
 /**

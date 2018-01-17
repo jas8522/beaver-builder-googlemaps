@@ -1,4 +1,5 @@
 <?php
+
 $mapsID = 'maps-'. uniqid();
 
 if ( stristr($settings->markers_type, 'automatic') ){
@@ -9,24 +10,54 @@ if ( stristr($settings->markers_type, 'automatic') ){
 	
 	//Override the $settings->markers object values.
 	$settings->markers = array();
-
+	
 	if ( $query->have_posts() ) {
+			$coords_updated = 0;
 	    while ( $query->have_posts() ) {
 				
 	        $query->the_post();
-
-					$address = get_post_meta( get_the_ID(), $settings->address_cf, true );
-					$lat = get_post_meta( get_the_ID(), $settings->lat_cf, true );
-					$lng = get_post_meta( get_the_ID(), $settings->lng_cf, true );
+					$postid = get_the_ID();
+					$address = get_post_meta( $postid, $settings->address_cf, true );
 					
+					$lat_field_name = (empty($settings->lat_cf))? 'bbgmap_lat' : $settings->lat_cf;
+					$lng_field_name = (empty($settings->lng_cf))? 'bbgmap_lng' : $settings->lng_cf;
+					
+					$lat = get_post_meta( $postid, $lat_field_name, true );
+					$lng = get_post_meta( $postid, $lng_field_name, true );
+										
 					$markerdata = array(
 						'title' => get_the_title(),
 						'marker' => $settings->marker_icon,
 						'content' => get_the_content(),
 					);
 					
-					if ( ! empty( $address ) ) $markerdata['address'] = $address;
-					else if ( ! empty( $lat ) && ! empty( $lng ) ){
+					if ( empty( $lat ) || empty( $lng ) ){
+					
+						/*
+						 * G Maps Geocoder has a maximum 20 per second request limit
+						 * So we grab as many as we can on each page load.
+						 */
+						if ( ! empty( $address ) && $coords_updated < 20 ){
+							$new_coords = TPgMapModule::getLatLong($address);
+							
+							$coords_updated++;
+							
+							//Save for Javascript output
+							$markerdata['lat'] = $new_coords['lat'];
+							$markerdata['lng'] = $new_coords['lng'];
+							
+							//Save to DB
+							if ( ! add_post_meta( $postid, $lat_field_name, $new_coords['lat'], true ) ) { 
+   							update_post_meta( $postid, $lat_field_name, $new_coords['lat'] );
+							}
+							if ( ! add_post_meta( $postid, $lng_field_name, $new_coords['lng'], true ) ) { 
+   							update_post_meta( $postid, $lng_field_name, $new_coords['lng'] );
+							}
+							
+						}
+						
+					}
+					else{ //use stored coords
 						$markerdata['lat'] = $lat;
 						$markerdata['lng'] = $lng;
 					}
@@ -71,21 +102,12 @@ if( $atts['markers'] && count($atts['markers']) > 0 ) {
 }
 
 
-if ($settings->markers_type == 'automatic-address'){
-	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->address )  ) ) {
-		?>
-		<div class="alert alert-danger" role="alert"><?php _e('Either no posts found, or no address custom field was found.', 'bbgmap'); ?></div>
-		<?php
-		return;
-	}
-}
-else{
-	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(  $atts['markers'][0]->lng ) ) ) {
-		?>
-		<div class="alert alert-danger" role="alert"><?php _e('Add a marker to see the map', 'bbgmap'); ?></div>
-		<?php
-		return;
-	}
+
+if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(  $atts['markers'][0]->lng ) ) ) {
+	?>
+	<div class="alert alert-danger" role="alert"><?php _e('Add a marker to see the map', 'bbgmap'); ?></div>
+	<?php
+	return;
 }
 ?>
 
@@ -159,38 +181,7 @@ else{
 					} else {
 						var icon = '<?php echo esc_js( $bbgmap_map_defaut_icon ); ?>';
 					}
-
-			<?php if ($settings->markers_type == 'automatic-address'): ?>
-			
-					geocoder.geocode( { 'address': marker.address}, function(results, status) {
-						if (status == google.maps.GeocoderStatus.OK) {
-							map.setCenter(results[0].geometry.location);
-							
-							var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
-								'position': results[0].geometry.location,
-								'title': marker.title,
-								'icon': icon,
-								'bounds': bounds
-							}).click(function() {
-								
-								if(marker.content)
-								{
-									marker.content = '<strong>' + marker.title + '</strong><br/>' + marker.content;
-								}
-								else{
-									marker.content = '<strong>' + marker.title + '</strong><br/>' + marker.address;
-								}
-								$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
-								
-							})[0];
-							
-						} else {
-							console.log('Geocode was not successful with post "' + marker.title + '" at address "' + marker.address + '" for the following reason: ' + status); //quieter error
-						}
-					});
-						
-			<?php else: ?>
-					
+													
 					var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
 						'position': new google.maps.LatLng( marker.lat, marker.lng ),
 						'icon': icon,
@@ -202,8 +193,6 @@ else{
 						}
 					})[0];
 					
-			<?php endif; ?>
-
 				});
 
 				$('#<?php echo esc_js( $mapsID ); ?>').gmap('set', 'MarkerClusterer', new MarkerClusterer(map, $(this).gmap('get', 'markers')));
