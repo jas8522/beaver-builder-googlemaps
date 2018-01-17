@@ -19,7 +19,7 @@ if ( stristr($settings->markers_type, 'automatic') ){
 					
 					$markerdata = array(
 						'title' => get_the_title(),
-						'marker' => '<i class="' . $settings->marker_icon . '"></i>', //icon class
+						'marker' => $settings->marker_icon,
 						'content' => get_the_content(),
 					);
 					
