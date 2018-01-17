@@ -62,6 +62,7 @@ if ( stristr($settings->markers_type, 'automatic') ){
 					else{ //use stored coords
 						$markerdata['lat'] = $lat;
 						$markerdata['lng'] = $lng;
+						$markerdata['address'] = $address;
 					}
 						
 					$settings->markers[] = (object) $markerdata;
