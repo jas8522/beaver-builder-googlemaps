@@ -1,9 +1,11 @@
 <?php
 $mapsID = 'maps-'. uniqid();
 
-$query = FLBuilderLoop::query( $settings );
-
 if ( stristr($settings->markers_type, 'automatic') ){
+		
+	$settings->posts_per_page = -1; //We want all posts.
+	
+	$query = FLBuilderLoop::query( $settings );
 	
 	//Override the $settings->markers object values.
 	$settings->markers = array();
