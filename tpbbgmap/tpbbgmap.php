@@ -20,9 +20,8 @@ class TPgMapModule extends FLBuilderModule {
         ));
 
 		$lang = explode('_', get_locale())[0]; //get_locale() returns format: en_US
-		$apikeytext = empty($this->settings->gmaps_api_key)? '' : '&amp;key=' . $this->settings->gmaps_api_key;
 		
-		$this->add_js( 'google-maps',       	'//maps.google.com/maps/api/js?language=' . $lang . '&amp;libraries=places' . $apikeytext, array('jquery'), null );
+		$this->add_js( 'google-maps',       	'//maps.google.com/maps/api/js?language=' . $lang . '&amp;libraries=places', array('jquery'), null );
 		$this->add_js( 'jquery-ui-map',     	$this->url .'assets/js/jquery.ui.map.min.js', array('jquery'), null, null );
 		$this->add_js( 'markerclusterer',		$this->url .'assets/js/markerclusterer.min.js', array('jquery','jquery-ui-map'), null, null );
 		$this->add_js( 'bb-gmaps-script',     	$this->url .'assets/js/script.js', array('markerclusterer'), null, null );
