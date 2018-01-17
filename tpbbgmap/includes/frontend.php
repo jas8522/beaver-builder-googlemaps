@@ -166,13 +166,20 @@ else{
 							
 							var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
 								'position': results[0].geometry.location,
+								'title': marker.title,
 								'icon': icon,
 								'bounds': bounds
 							}).click(function() {
+								
 								if(marker.content)
 								{
-									$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
+									marker.content = '<strong>' + marker.title + '</strong><br/>' + marker.content;
 								}
+								else{
+									marker.content = '<strong>' + marker.title + '</strong><br/>' + marker.address;
+								}
+								$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
+								
 							})[0];
 							
 						} else {
