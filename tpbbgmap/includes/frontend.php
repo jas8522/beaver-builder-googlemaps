@@ -3,29 +3,34 @@ $mapsID = 'maps-'. uniqid();
 
 $query = FLBuilderLoop::query( $settings );
 
-if ($settings->markers_type == 'automatic'){
+if ( stristr($settings->markers_type, 'automatic') ){
 	
 	//Override the $settings->markers object values.
 	$settings->markers = array();
 
 	if ( $query->have_posts() ) {
 	    while ( $query->have_posts() ) {
+				
 	        $query->the_post();
 
 					$address = get_post_meta( get_the_ID(), $settings->address_cf, true );
-										
-					if ( ! empty( $address ) ) {
-											
-						$settings->markers[] = (object) array(
-							'title' => get_the_title(),
-							//'lat' => '',
-							//'lng' => '',
-							'address' => $address,
-							'marker' => '', //img file accepted
-							'content' => get_the_content(),
-						);
-						
+					$lat = get_post_meta( get_the_ID(), $settings->lat_cf, true );
+					$lng = get_post_meta( get_the_ID(), $settings->lng_cf, true );
+					
+					$markerdata = array(
+						'title' => get_the_title(),
+						'marker' => '<i class="' . $settings->marker_icon . '"></i>', //icon class
+						'content' => get_the_content(),
+					);
+					
+					if ( ! empty( $address ) ) $markerdata['address'] = $address;
+					else if ( ! empty( $lat ) && ! empty( $lng ) ){
+						$markerdata['lat'] = $lat;
+						$markerdata['lng'] = $lng;
 					}
+						
+					$settings->markers[] = (object) $markerdata;
+					
 	    }
 	}
 	wp_reset_postdata();
@@ -64,18 +69,18 @@ if( $atts['markers'] && count($atts['markers']) > 0 ) {
 }
 
 
-if ($settings->markers_type == 'manual'){
-	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(  $atts['markers'][0]->lng ) ) ) {
+if ($settings->markers_type == 'automatic-address'){
+	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->address )  ) ) {
 		?>
-		<div class="alert alert-danger" role="alert"><?php _e('Add a marker to see the map', 'bbgmap'); ?></div>
+		<div class="alert alert-danger" role="alert"><?php _e('Either no posts found, or no address custom field was found.', 'bbgmap'); ?></div>
 		<?php
 		return;
 	}
 }
 else{
-	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->address )  ) ) {
+	if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(  $atts['markers'][0]->lng ) ) ) {
 		?>
-		<div class="alert alert-danger" role="alert"><?php _e('No posts found', 'bbgmap'); ?></div>
+		<div class="alert alert-danger" role="alert"><?php _e('Add a marker to see the map', 'bbgmap'); ?></div>
 		<?php
 		return;
 	}
@@ -99,10 +104,10 @@ else{
 			$map_style = '[{"featureType":"landscape","stylers":[{"saturation":-100},{"lightness":65},{"visibility":"on"}]},{"featureType":"poi","stylers":[{"saturation":-100},{"lightness":51},{"visibility":"simplified"}]},{"featureType":"road.highway","stylers":[{"saturation":-100},{"visibility":"simplified"}]},{"featureType":"road.arterial","stylers":[{"saturation":-100},{"lightness":30},{"visibility":"on"}]},{"featureType":"road.local","stylers":[{"saturation":-100},{"lightness":40},{"visibility":"on"}]},{"featureType":"transit","stylers":[{"saturation":-100},{"visibility":"simplified"}]},{"featureType":"administrative.province","stylers":[{"visibility":"off"}]},{"featureType":"water","elementType":"labels","stylers":[{"visibility":"on"},{"lightness":-25},{"saturation":-100}]},{"featureType":"water","elementType":"geometry","stylers":[{"hue":"#ffff00"},{"lightness":-25},{"saturation":-97}]}]';
 		}
 
-		$bbgmap_map_defaut_icon = TP_BB_GMAP_URL .'tpbbgmap/assets/images/marker.png';
+		$bbgmap_map_default_icon = TP_BB_GMAP_URL .'tpbbgmap/assets/images/marker.png';
 		// Filter to change Google maps defaut icon
-		if( has_filter('bbgmap_map_defaut_icon') ) {
-			$bbgmap_map_defaut_icon = apply_filters( 'bbgmap_map_defaut_icon', $bbgmap_map_defaut_icon );
+		if( has_filter('bbgmap_map_default_icon') ) {
+			$bbgmap_map_default_icon = apply_filters( 'bbgmap_map_default_icon', $bbgmap_map_default_icon );
 		}
 		?>
 
@@ -110,7 +115,7 @@ else{
 
 		var styles = <?php echo $map_style; ?>;
 
-		var styledMap = new google.maps.StyledMapType( styles, {name: "Routier"} );
+		var styledMap = new google.maps.StyledMapType( styles, {name: "<?php echo __('Custom', 'bbgmap'); ?>"} );
 
 		//var latlng = new google.maps.LatLng(<?php echo $atts['markers'][0]->lat; ?>,<?php echo $atts['markers'][0]->lng; ?>); // Paris
 		var latlng = new google.maps.LatLng(0,0); //we'll re-center after loading anyway.
@@ -153,24 +158,11 @@ else{
 						var icon = '<?php echo esc_js( $bbgmap_map_defaut_icon ); ?>';
 					}
 
-					<?php if ($settings->markers_type == 'manual'): ?>
-					
-					var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
-						'position': new google.maps.LatLng( marker.lat, marker.lng ),
-						'icon': icon,
-						'bounds': bounds
-					}).click(function() {
-						if(marker.content)
-						{
-							$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
-						}
-					})[0];
-						
-					<?php else: ?>
-					
+			<?php if ($settings->markers_type == 'automatic-address'): ?>
+			
 					geocoder.geocode( { 'address': marker.address}, function(results, status) {
-				    if (status == google.maps.GeocoderStatus.OK) {
-				      map.setCenter(results[0].geometry.location);
+						if (status == google.maps.GeocoderStatus.OK) {
+							map.setCenter(results[0].geometry.location);
 							
 							var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
 								'position': results[0].geometry.location,
@@ -183,12 +175,25 @@ else{
 								}
 							})[0];
 							
-				    } else {
-				      alert('Geocode was not successful for the following reason: ' + status);
-				    }
-				  });
+						} else {
+							alert('Geocode was not successful for the following reason: ' + status);
+						}
+					});
+						
+			<?php else: ?>
 					
-					<?php endif; ?>
+					var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
+						'position': new google.maps.LatLng( marker.lat, marker.lng ),
+						'icon': icon,
+						'bounds': bounds
+					}).click(function() {
+						if(marker.content)
+						{
+							$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
+						}
+					})[0];
+					
+			<?php endif; ?>
 
 				});
 

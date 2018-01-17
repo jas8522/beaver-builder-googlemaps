@@ -19,14 +19,26 @@ class TPgMapModule extends FLBuilderModule {
             'partial_refresh'	=> true
         ));
 
-		$this->add_js( 'google-maps',       	'//maps.google.com/maps/api/js?sensor=false&#038;language=fr&amp;libraries=places', array('jquery'), null );
+		$lang = explode('_', get_locale())[0]; //get_locale() returns format: en_US
+		$apikeytext = empty($this->settings->gmaps_api_key)? '' : '&amp;key=' . $this->settings->gmaps_api_key;
+		
+		$this->add_js( 'google-maps',       	'//maps.google.com/maps/api/js?language=' . $lang . '&amp;libraries=places' . $apikeytext, array('jquery'), null );
 		$this->add_js( 'jquery-ui-map',     	$this->url .'assets/js/jquery.ui.map.min.js', array('jquery'), null, null );
 		$this->add_js( 'markerclusterer',		$this->url .'assets/js/markerclusterer.min.js', array('jquery','jquery-ui-map'), null, null );
 		$this->add_js( 'bb-gmaps-script',     	$this->url .'assets/js/script.js', array('markerclusterer'), null, null );
 
 		add_filter('fl_builder_render_settings_field', array($this, 'extended_map_filters'), 10, 3);
 	}
-
+	
+	public function enqueue_scripts()
+	{
+	    if ( $this->settings && !empty($this->settings->gmaps_api_key) ) {
+				//replace the google-maps JS with one with key loaded.
+				$apikeytext = empty($this->settings->gmaps_api_key)? '' : '&amp;key=' . $this->settings->gmaps_api_key;
+				$this->add_js( 'google-maps',       	'//maps.google.com/maps/api/js?language=' . $lang . '&amp;libraries=places' . $apikeytext, array('jquery'), null );
+	    }
+	}
+	
 	public function update( $settings ) {
 
 		if( !empty( $settings->content ) )
@@ -51,8 +63,15 @@ FLBuilder::register_module('TPgMapModule', array(
 		'title'         => __('General', 'bbgmap'),
 		'sections'      => array(
 			'general'       => array(
-				'title'         => '',
+				'title'         => __('Map Globals', 'bbgmap'),
 				'fields'        => array(
+					'gmaps_api_key'    => array(
+						'type'          => 'text',
+						'label'         => __('Google Maps API Key', 'bbgmap'),
+						'placeholder'  	=> __( '', 'bbgmap' ),
+						'description'		=> __( 'Learn how to <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank">obtain your key here</a>.', 'bbgmap' ),
+						'help'					=> __( 'An API key will be required after a certain number of requests is exceeded.', 'bbgmap' ),
+					),
 					'zoom'        => array(
 						'type'          => 'select',
 						'label'         => __('Zoom', 'bbgmap'),
@@ -93,21 +112,31 @@ FLBuilder::register_module('TPgMapModule', array(
 						'preview'      => array(
 							'type'         => 'refresh'
 						)
-					),
+					)
+				)
+			),
+			'markers_config'       => array(
+				'title'         => __( 'Markers Source', 'bbgmap' ),
+				'fields'        => array(
 					'markers_type' => array(
 					    'type'          => 'select',
-					    'label'         => __( 'Map Marker Source', 'bbgmap' ),
+					    'label'         => __( '', 'bbgmap' ),
 					    'default'       => 'manual',
 					    'options'       => array(
-					        'manual'      => __( 'Manually Specified Markers', 'bbgmap' ),
-					        'automatic'      => __( 'Automatic Markers from Custom Fields', 'bbgmap' )
+					        'manual'      => __( 'Manually Defined', 'bbgmap' ),
+					        'automatic-address'      => __( 'Post Address Field', 'bbgmap' ),
+									'automatic-coordinates'      => __( 'Post Coordinates Fields', 'bbgmap' )
 					    ),
 					    'toggle'        => array(
 					        'manual'      => array(
 					            'tabs'          => array( 'markersSection' )
 					        ),
-					        'automatic'      => array(
-											'fields'        => array( 'address_cf' ),
+					        'automatic-address'      => array(
+											'fields'        => array( 'address_cf', 'marker_icon' ),
+											'tabs'          => array( 'markersAutoSection' )
+									),
+									'automatic-coordinates'      => array(
+											'fields'        => array( 'lat_cf', 'lng_cf', 'marker_icon' ),
 											'tabs'          => array( 'markersAutoSection' )
 									),
 					    )
@@ -119,16 +148,36 @@ FLBuilder::register_module('TPgMapModule', array(
 						//'description'		=> __( 'The name of the custom field that contains the address', 'bbgmap' ),
 						'help'					=> __( 'This field is used only when specifying Automatic Markers', 'bbgmap' ),
 					),
+					'lat_cf'    => array(
+						'type'          => 'text',
+						'label'         => __('Latitude Custom Field', 'bbgmap'),
+						'placeholder'  	=> __( '_lat', 'bbgmap' ),
+						//'description'		=> __( 'The name of the custom field that contains the address', 'bbgmap' ),
+						'help'					=> __( 'This field is used only when specifying Automatic Markers', 'bbgmap' ),
+					),
+					'lng_cf'    => array(
+						'type'          => 'text',
+						'label'         => __('Logitude Custom Field', 'bbgmap'),
+						'placeholder'  	=> __( '_lng', 'bbgmap' ),
+						//'description'		=> __( 'The name of the custom field that contains the address', 'bbgmap' ),
+						'help'					=> __( 'This field is used only when specifying Automatic Markers', 'bbgmap' ),
+					),
+					'marker_icon'    	=> array(
+						'type'          => 'photo',
+						'label'         => __('Marker Icon Image', 'bbgmap'),
+						'description'		=> __( 'The icon to use for each marker on the map', 'bbgmap' ),
+						'show_remove'		=> true, //if true, will show default marker
+					),
 				)
 			)
 		)
 	),
 	'markersAutoSection' => array(
-    'title'         => __( 'Automatic Markers', 'fl-builder' ),
+    'title'         => __( 'Post Filters', 'fl-builder' ),
     'file'          => FL_BUILDER_DIR . 'includes/loop-settings.php',
 	),
 	'markersSection'       => array(
-		'title'         => __('Manual Markers', 'bbgmap'),
+		'title'         => __('Markers', 'bbgmap'),
 		'sections'      => array(
 			'general'       => array(
 				'title'         => '',
