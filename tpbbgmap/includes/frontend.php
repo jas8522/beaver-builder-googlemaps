@@ -45,6 +45,7 @@ if ( stristr($settings->markers_type, 'automatic') ){
 							//Save for Javascript output
 							$markerdata['lat'] = $new_coords['lat'];
 							$markerdata['lng'] = $new_coords['lng'];
+							$markerdata['address'] = $new_coords['addr'];
 							
 							//Save to DB
 							if ( ! add_post_meta( $postid, $lat_field_name, $new_coords['lat'], true ) ) { 
@@ -53,6 +54,7 @@ if ( stristr($settings->markers_type, 'automatic') ){
 							if ( ! add_post_meta( $postid, $lng_field_name, $new_coords['lng'], true ) ) { 
    							update_post_meta( $postid, $lng_field_name, $new_coords['lng'] );
 							}
+							update_post_meta( $postid, $settings->address_cf, $new_coords['addr'] ); //update with formatted address
 							
 						}
 						
@@ -181,17 +183,21 @@ if( !isset( $atts['markers'] ) || ( empty(  $atts['markers'][0]->lat ) || empty(
 					} else {
 						var icon = '<?php echo esc_js( $bbgmap_map_defaut_icon ); ?>';
 					}
-													
-					var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
-						'position': new google.maps.LatLng( marker.lat, marker.lng ),
-						'icon': icon,
-						'bounds': bounds
-					}).click(function() {
-						if(marker.content)
-						{
+					
+					if ( marker.lat && marker.lat.length > 0 && marker.lng && marker.lng.length > 0 ){
+						var m = $('#<?php echo esc_js( $mapsID ); ?>').gmap('addMarker', {
+							'position': new google.maps.LatLng( marker.lat, marker.lng ),
+							'icon': icon,
+							'bounds': bounds
+						}).click(function() {
+							
+							if (marker.content) marker.content = '<strong>' + marker.title + '</strong><br/>' + marker.content;
+							else marker.content = '<strong>' + marker.title + '</strong><br/>' + marker.address;
+
 							$('#<?php echo esc_js( $mapsID ); ?>').gmap('openInfoWindow', { content : the_content( marker ) }, this);
-						}
-					})[0];
+							
+						})[0];
+					}
 					
 				});
 
