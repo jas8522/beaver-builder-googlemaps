@@ -176,7 +176,7 @@ else{
 							})[0];
 							
 						} else {
-							console.log('Geocode was not successful with address "' + marker.address + '" for the following reason: ' + status); //quieter error
+							console.log('Geocode was not successful with post "' + marker.title + '" at address "' + marker.address + '" for the following reason: ' + status); //quieter error
 						}
 					});
 						
